@@ -22,7 +22,7 @@ startBtn.onclick = async () => {
 
   // Creează un analizor FFT pentru frecvențe
   analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 2048; // mai mare = mai multă precizie spectrală
+  analyser.fftSize = 4096; // mai mare = mai multă precizie spectrală
 
   const bufferLength = analyser.frequencyBinCount; // numărul de bin-uri de frecvență
   dataArray = new Uint8Array(bufferLength); // buffer unde stocăm datele de amplitudine
@@ -32,6 +32,8 @@ startBtn.onclick = async () => {
   // Dezactivăm Start și activăm Stop
   startBtn.disabled = true;
   stopBtn.disabled = false;
+
+  document.getElementById("alertaZgomot").style.display = "none";
 
   // Începem desenarea spectogramei
   drawSpectrogram(bufferLength);
@@ -71,10 +73,10 @@ function drawSpectrogram(bufferLength) {
 
   // Desenăm noua coloană pe marginea din dreapta
   for (let y = 0; y < canvas.height; y++) {
-    const index = Math.floor(y * dataArray.length / canvas.height); // mapăm y pe frecvență
+    const index = Math.floor(Math.pow(y / canvas.height, 2.5) * dataArray.length); // mapăm y pe frecvență
     const value = dataArray[index]; // amplitudinea frecvenței respective
     const percent = value / 255; // procent din maxim
-    const hue = 300 - (percent * 300); // culoare între roz și albastru
+    const hue = percent * 280; // de la albastru → roșu 
     const lightness = 50 + (percent * 10); // luminozitate
     ctx.fillStyle = `hsl(${hue}, 100%, ${lightness}%)`;
     ctx.fillRect(canvas.width - 1, canvas.height - y, 1, 1); // pixel vertical
@@ -85,42 +87,51 @@ function drawSpectrogram(bufferLength) {
 }
 
 function detectNoise(freqData) {
-  console.log("detectNoise() a fost apelată");
-  console.log("Primul set de valori:", freqData.slice(0, 10));
-
   const threshold = 90;
   const noisyBins = freqData.filter(v => v > threshold);
-  console.log(`noisyBins.length = ${noisyBins.length} din ${freqData.length}`);
 
-  // Calculează RMS și dB în orice caz, pentru afișare live
   const rms = Math.sqrt(freqData.reduce((sum, v) => sum + v * v, 0) / freqData.length);
   const dB = 20 * Math.log10(rms);
 
-  // Actualizează contorul live
+  // Actualizare contor dB
   const counter = document.getElementById("dbCounter");
   if (counter) {
     counter.textContent = `Nivel curent: ${dB.toFixed(2)} dB`;
   }
 
-  // Afișează / ascunde alerta vizuală
+  // Afișare alertă și acțiuni automate dacă dB ≥ 40
   const alerta = document.getElementById("alertaZgomot");
-  if (dB >= 30) {
+  if (dB >= 42) {
     alerta.style.display = "block";
-  } else {
-    alerta.style.display = "none";
-  }
 
-  // Dacă e suficient zgomot (spectral), trimitem și la server
-  if (noisyBins.length > freqData.length * 0.25) {
-    console.log(`Zgomot detectat! Intensitate: ${dB.toFixed(2)} dB`);
+    // Trimitere la server
     fetch("/api/noise-event", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         timestamp: new Date().toISOString(),
-        status: "zgomot_detectat",
+        status: "zgomot_puternic_detectat",
         valoare: parseFloat(dB.toFixed(2))
       })
     });
+
+    // Oprire automată (simulează apăsarea pe Stop)
+    stopSpectrogram();
+  } else {
+    alerta.style.display = "none";
   }
 }
+
+function stopSpectrogram() {
+  if (animationId) cancelAnimationFrame(animationId);
+  if (audioCtx && audioCtx.state !== 'closed') audioCtx.close();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
+
+  const counter = document.getElementById("dbCounter");
+  if (counter) counter.textContent = "Nivel curent: 0 dB";
+
+}
+
+
