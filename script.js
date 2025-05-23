@@ -40,19 +40,21 @@ startBtn.onclick = async () => {
 
 // Oprirea capturii audio
 stopBtn.onclick = () => {
-  // Oprirea animației dacă rulează
   if (animationId) cancelAnimationFrame(animationId);
-
-  // Oprirea contextului audio (dacă nu e deja închis)
   if (audioCtx && audioCtx.state !== 'closed') audioCtx.close();
-
-  // Curățarea canvasului
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Reactivăm butonul Start
   startBtn.disabled = false;
   stopBtn.disabled = true;
+
+  // Resetăm contorul la 0 dB
+  const counter = document.getElementById("dbCounter");
+  if (counter) counter.textContent = "Nivel curent: 0 dB";
+
+  // Ascundem alerta (dacă era activă)
+  const alerta = document.getElementById("alertaZgomot");
+  if (alerta) alerta.style.display = "none";
 };
+
 
 // Funcția de desenare a spectogramei
 function drawSpectrogram(bufferLength) {
@@ -82,25 +84,34 @@ function drawSpectrogram(bufferLength) {
   detectNoise(dataArray);
 }
 
-// Detectarea automată a zgomotului
 function detectNoise(freqData) {
-  // Verificăm dacă funcția este apelată
   console.log("detectNoise() a fost apelată");
-
-  // Afișăm datele brute – amplitudinea frecvențelor
   console.log("Primul set de valori:", freqData.slice(0, 10));
 
-  // Setăm un prag scăzut pentru testare (temporar)
-  const threshold = 40;
-
-  // Verificăm câte bin-uri depășesc pragul
+  const threshold = 90;
   const noisyBins = freqData.filter(v => v > threshold);
   console.log(`noisyBins.length = ${noisyBins.length} din ${freqData.length}`);
 
-  // Condiția de declanșare zgomot
+  // Calculează RMS și dB în orice caz, pentru afișare live
+  const rms = Math.sqrt(freqData.reduce((sum, v) => sum + v * v, 0) / freqData.length);
+  const dB = 20 * Math.log10(rms);
+
+  // Actualizează contorul live
+  const counter = document.getElementById("dbCounter");
+  if (counter) {
+    counter.textContent = `Nivel curent: ${dB.toFixed(2)} dB`;
+  }
+
+  // Afișează / ascunde alerta vizuală
+  const alerta = document.getElementById("alertaZgomot");
+  if (dB >= 30) {
+    alerta.style.display = "block";
+  } else {
+    alerta.style.display = "none";
+  }
+
+  // Dacă e suficient zgomot (spectral), trimitem și la server
   if (noisyBins.length > freqData.length * 0.25) {
-    const rms = Math.sqrt(freqData.reduce((sum, v) => sum + v * v, 0) / freqData.length);
-    const dB = 20 * Math.log10(rms);
     console.log(`Zgomot detectat! Intensitate: ${dB.toFixed(2)} dB`);
     fetch("/api/noise-event", {
       method: "POST",
@@ -113,4 +124,3 @@ function detectNoise(freqData) {
     });
   }
 }
-

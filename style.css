@@ -34,3 +34,22 @@ button:disabled {
   background: #555;
   cursor: not-allowed;
 }
+
+#dbCounter {
+  font-size: 24px;
+  margin-top: 10px;
+  color: #0ff;
+}
+
+#alertaZgomot {
+  margin-top: 15px;
+  font-size: 20px;
+  font-weight: bold;
+  color: red;
+  animation: alerta-puls 1s infinite alternate;
+}
+
+@keyframes alerta-puls {
+  from { opacity: 1; }
+  to { opacity: 0.4; }
+}
