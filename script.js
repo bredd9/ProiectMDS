@@ -8,62 +8,6 @@ const stopBtn = document.getElementById("stopBtn");
 let audioCtx, analyser, dataArray, source;
 let animationId = null;
 
-let noiseChart;
-const chartCanvas = document.getElementById("noiseChart");
-
-// Inițializează graficul cu Chart.js
-function initChart() {
-  noiseChart = new Chart(chartCanvas, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Nivel Zgomot (dB)',
-        data: [],
-        borderWidth: 2,
-        borderColor: 'rgba(0, 255, 255, 1)',
-        backgroundColor: 'rgba(0, 255, 255, 0.1)',
-        tension: 0.2
-      }]
-    },
-    options: {
-      scales: {
-        y: {
-          beginAtZero: true,
-          suggestedMax: 100
-        }
-      }
-    }
-  });
-}
-
-// Încarcă ultimele 50 de valori la pornire
-async function loadInitialChartData() {
-  const res = await fetch('/api/noise-history');
-  const data = await res.json();
-
-  const labels = data.map(p => new Date(p.time).toLocaleTimeString());
-  const values = data.map(p => parseFloat(p.intensitate.toFixed(2)));
-
-  noiseChart.data.labels = labels;
-  noiseChart.data.datasets[0].data = values;
-  noiseChart.update();
-}
-
-// Adaugă un punct nou în grafic (live)
-function addToChart(dB) {
-  const time = new Date().toLocaleTimeString();
-  noiseChart.data.labels.push(time);
-  noiseChart.data.datasets[0].data.push(dB);
-
-  // Păstrăm doar ultimele 50 de puncte
-  if (noiseChart.data.labels.length > 50) {
-    noiseChart.data.labels.shift();
-    noiseChart.data.datasets[0].data.shift();
-  }
-
-  noiseChart.update();
-}
 
 // Când utilizatorul apasă pe Start
 startBtn.onclick = async () => {
@@ -91,8 +35,6 @@ startBtn.onclick = async () => {
 
   // Începem desenarea spectogramei
   drawSpectrogram(bufferLength);
-  initChart();
-  loadInitialChartData();
 
 };
 
@@ -160,7 +102,6 @@ function detectNoise(freqData) {
     const rms = Math.sqrt(freqData.reduce((sum, v) => sum + v * v, 0) / freqData.length);
     const dB = 20 * Math.log10(rms);
     console.log(`Zgomot detectat! Intensitate: ${dB.toFixed(2)} dB`);
-    addToChart(dB);
     fetch("/api/noise-event", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

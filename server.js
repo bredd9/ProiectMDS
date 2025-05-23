@@ -74,20 +74,6 @@ app.post('/api/noise-event', (req, res) => {
   });
 });
 
-// Returnează ultimele 50 de înregistrări din InfluxDB
-app.get('/api/noise-history', async (req, res) => {
-  try {
-    const result = await influx.query(`
-      SELECT "intensitate" FROM "evenimente_zgomot"
-      ORDER BY time DESC
-      LIMIT 50
-    `);
-    res.json(result.reverse()); // inversăm pentru ordine cronologică
-  } catch (err) {
-    console.error("Eroare la interogare InfluxDB:", err);
-    res.sendStatus(500);
-  }
-});
 
 
 // Pornim serverul pe portul 3000
