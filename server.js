@@ -1,36 +1,35 @@
-// Importăm modulele necesare
+// Importam modulele necesare
 const express = require('express');
 const bodyParser = require('body-parser');
 const Influx = require('influx');
 
-// Inițializăm aplicația Express
+// Initializam aplicatia Express
 const app = express();
 
-// Parsăm JSON din request body
+// Parsam cererile JSON din body
 app.use(bodyParser.json());
 
-// Servim fișierele statice (HTML, CSS, JS)
+// Servim fisierele statice (HTML, CSS, JS)
 app.use(express.static(__dirname));
 
-// Conectare la InfluxDB local
+// Conectare la baza de date InfluxDB locala
 const influx = new Influx.InfluxDB({
   host: 'localhost',
   database: 'zgomot', // numele bazei de date
   schema: [
-  {
-    measurement: 'evenimente_zgomot',
-    fields: {
-      intensitate: Influx.FieldType.FLOAT,
-      data_zi: Influx.FieldType.STRING,
-      ora_exacta: Influx.FieldType.STRING
-    },
-    tags: ['sursa']
-  }
-]
-
+    {
+      measurement: 'evenimente_zgomot', // numele tabelului
+      fields: {
+        intensitate: Influx.FieldType.FLOAT,
+        data_zi: Influx.FieldType.STRING,
+        ora_exacta: Influx.FieldType.STRING
+      },
+      tags: ['sursa'] // eticheta pentru sursa zgomotului
+    }
+  ]
 });
 
-// Verificăm dacă baza de date există și o creăm dacă nu
+// Verificam daca baza de date exista. Daca nu exista o cream
 influx.getDatabaseNames()
   .then(names => {
     if (!names.includes('zgomot')) {
@@ -44,37 +43,32 @@ influx.getDatabaseNames()
     console.error("Eroare la conectarea cu InfluxDB:", err);
   });
 
-// API endpoint care primește evenimentele de zgomot de la client (browser)
+// Endpoint API care primeste evenimente de zgomot de la client
 app.post('/api/noise-event', (req, res) => {
   const { timestamp, status, valoare } = req.body;
 
-  // Scriem un nou punct în InfluxDB
- influx.writePoints([
-  {
-    measurement: 'evenimente_zgomot',
-    tags: { sursa: 'browser_microfon' },
-    fields: {
-  intensitate: parseFloat(valoare) || 1,
-  data_zi: new Date(timestamp).toISOString().slice(0, 10),
-  ora_exacta: new Date(timestamp).toLocaleTimeString('ro-RO', { hour12: false })
-},
-
-    timestamp: new Date(timestamp)
-  }
-])
-
-
+  // Scriem datele primite in baza de date
+  influx.writePoints([
+    {
+      measurement: 'evenimente_zgomot',
+      tags: { sursa: 'browser_microfon' },
+      fields: {
+        intensitate: parseFloat(valoare) || 1,
+        data_zi: new Date(timestamp).toISOString().slice(0, 10), // ex: 2025-06-04
+        ora_exacta: new Date(timestamp).toLocaleTimeString('ro-RO', { hour12: false }) // ex: 14:03:22
+      },
+      timestamp: new Date(timestamp)
+    }
+  ])
   .then(() => {
     console.log(`[Zgomot] ${timestamp} | ${status} | dB: ${valoare}`);
-    res.sendStatus(200); // răspuns OK
+    res.sendStatus(200); // raspuns OK
   })
   .catch(err => {
-    console.error("Eroare la scrierea în InfluxDB:", err);
-    res.sendStatus(500); // răspuns cu eroare
+    console.error("Eroare la scrierea in InfluxDB:", err);
+    res.sendStatus(500); // raspuns cu eroare
   });
 });
-
-
 
 // Pornim serverul pe portul 3000
 app.listen(3000, () => {
